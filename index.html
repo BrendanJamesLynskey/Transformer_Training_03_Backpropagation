@@ -495,7 +495,7 @@
     </ul>
     <div class="callout">
         <div class="callout-label">Live companion and sources</div>
-        <p>This deck follows <a href="https://transformer-decoder-explained.vercel.app/training/04-backprop">chapter 4, backprop through the model</a>, where the gradient for the window &ldquo;alice was&rdquo; travels back through Part 1&rsquo;s model stop by stop. For the inference side of every operation, see Part 1: <a href="https://transformer-decoder-explained.vercel.app/learn/03-attention">attention</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/04-ffn">feed-forward</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/05-layernorm-residuals">LayerNorm and residuals</a>. Checks: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> &sect;3.</p>
+        <p>This deck follows <a href="https://transformer-training-explained.vercel.app/training/04-backprop">chapter 4, backprop through the model</a>, where the gradient for the window &ldquo;alice was&rdquo; travels back through Part 1&rsquo;s model stop by stop. For the inference side of every operation, see Part 1: <a href="https://transformer-decoder-explained.vercel.app/learn/03-attention">attention</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/04-ffn">feed-forward</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/05-layernorm-residuals">LayerNorm and residuals</a>. Checks: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> &sect;3.</p>
     </div>
 </section>
 
@@ -626,8 +626,8 @@
 <line class="axis" x1="62" x2="62" y1="18" y2="248"/>
 <text class="lbl ax" x="258" y="284" text-anchor="middle">block (1 = nearest the input)</text>
 <text class="lbl ax" x="13" y="133" text-anchor="middle" transform="rotate(-90 13 133)">weight-gradient norm</text>
-<clipPath id="clip133408789438400"><rect x="62" y="18" width="392" height="230"/></clipPath>
-<g clip-path="url(#clip133408789438400)">
+<clipPath id="clip129419002228352"><rect x="62" y="18" width="392" height="230"/></clipPath>
+<g clip-path="url(#clip129419002228352)">
 <path class="ln s1" d="M86.5,160.9 L135.5,170.5 L184.5,175.4 L233.5,196.5 L282.5,188.4 L331.5,170.1 L380.5,168.0 L429.5,188.5"/>
 <circle class="pt s1" cx="86.5" cy="160.9" r="3"/>
 <circle class="pt s1" cx="135.5" cy="170.5" r="3"/>
@@ -747,11 +747,11 @@
         <li>Everything the backward pass reads must be <strong>saved</strong>: activation memory.</li>
         <li>Check a hand-written backward against <strong>autograd and finite differences</strong>.</li>
     </ul>
-    <p class="live-link">Animated: <a href="https://transformer-decoder-explained.vercel.app/training/04-backprop">chapter 4, backprop through the model</a> &middot; from first principles: <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Karpathy_Zero_to_Hero">micrograd (Karpathy hub)</a>, <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Linear_Algebra">Linear Algebra for AI</a> &middot; next: <a href="https://brendanjameslynskey.github.io/Transformer_Training_04_Optimisers/">deck 04, optimisers</a></p>
+    <p class="live-link">Animated: <a href="https://transformer-training-explained.vercel.app/training/04-backprop">chapter 4, backprop through the model</a> &middot; from first principles: <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Karpathy_Zero_to_Hero">micrograd (Karpathy hub)</a>, <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Linear_Algebra">Linear Algebra for AI</a> &middot; next: <a href="https://brendanjameslynskey.github.io/Transformer_Training_04_Optimisers/">deck 04, optimisers</a></p>
 </section>
 
 <footer class="footer">
-    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Transformer_Training">Transformer Training series</a> &middot; live, animated companion: <a href="https://transformer-decoder-explained.vercel.app/training/04-backprop">chapter 4, Backprop through the model</a> of <a href="https://transformer-decoder-explained.vercel.app/training">Transformer Decoder Explained, Part 2</a></p>
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Transformer_Training">Transformer Training series</a> &middot; live, animated companion: <a href="https://transformer-training-explained.vercel.app/training/04-backprop">chapter 4, Backprop through the model</a> of <a href="https://transformer-training-explained.vercel.app/training">Transformer Decoder Explained, Part 2</a></p>
     <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://brendanjameslynskey.github.io/Transformer_Training_02_Data_and_Tokenisation/">&larr; 02 Data &amp; Tokens</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/LLM_Hub_Transformer_Training/">Series index</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/Transformer_Training_04_Optimisers/">04 Optimisers &rarr;</a></p>
     <p style="margin-top: 0.5rem; font-size: 0.75rem;">Measured numbers: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> (transformer-explainer @15b1c9f). Code on these slides is cut from that repository.</p>
 </footer>

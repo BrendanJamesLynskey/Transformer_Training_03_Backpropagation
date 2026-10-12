@@ -8,9 +8,9 @@ What a gradient is; the backward order; linear, GELU, softmax/attention and Laye
 
 ## Live, animated companion
 
-This deck is the slide companion to Part 2 (Training) of [Transformer Decoder Explained](https://transformer-decoder-explained.vercel.app/training), where the same model trains in your browser:
+This deck is the slide companion to Part 2 (Training) of [Transformer Decoder Explained](https://transformer-training-explained.vercel.app/training), where the same model trains in your browser:
 
-- [Chapter 4: Backprop through the model](https://transformer-decoder-explained.vercel.app/training/04-backprop)
+- [Chapter 4: Backprop through the model](https://transformer-training-explained.vercel.app/training/04-backprop)
 
 ## Where the numbers come from
 
