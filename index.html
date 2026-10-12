@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer Training 03 — Backpropagation Through a Transformer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700&family=Source+Code+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f2027;
+            --bg-card: #13272f;
+            --bg-code: #182f38;
+            --text-primary: #ede7dd;
+            --text-secondary: #8ca5a9;
+            --accent: #83c395;
+            --accent-dim: #83c39544;
+            --accent-glow: #83c39533;
+            --border: #23404a;
+            --font-display: 'Sora', sans-serif;
+            --font-mono: 'Source Code Pro', 'Source Code Pro', monospace;
+            --font-body: 'Manrope', sans-serif;
+            --max-width: 900px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .hero > * { position: relative; z-index: 1; }
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+        .hero h1 .accent { color: var(--accent); }
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin-bottom: 2rem;
+        }
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .pipeline-arrow { color: var(--accent); font-size: 0.9rem; font-weight: 700; }
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .slide p { margin-bottom: 1rem; color: var(--text-secondary); }
+        .slide p strong { color: var(--text-primary); }
+        .slide ul, .slide ol { margin-bottom: 1rem; padding-left: 1.5rem; color: var(--text-secondary); }
+        .slide li { margin-bottom: 0.4rem; }
+        .slide li strong { color: var(--text-primary); }
+        .slide code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            padding: 0.05rem 0.35rem;
+            border-radius: 3px;
+            color: #cfd7d1;
+        }
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(131,195,149,0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .code-block pre { margin: 0; padding: 1rem; overflow-x: auto; }
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #cfd7d1;
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        .kw { color: #f48f70; }
+        .fn { color: #d4c0ea; }
+        .str { color: #c3dbea; }
+        .cm { color: #8ca5a9; font-style: italic; }
+        .num { color: #a8cee8; }
+        .type { color: #eac48b; }
+        .dir { color: #f48f70; }
+        .mac { color: #eac48b; }
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) td { background: rgba(19,39,47,0.5); }
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+        .diagram-box.accent { border-color: var(--accent); color: var(--accent); background: rgba(131,195,149,0.08); }
+        .diagram-box.dim { color: var(--text-secondary); border-color: var(--border); }
+        .diagram-arrow { color: var(--accent); font-size: 1.3rem; font-weight: 700; }
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-vertical .diagram-arrow { font-size: 1.1rem; }
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .hierarchy-level { display: flex; align-items: center; gap: 0.75rem; }
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+        .hierarchy-items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .hierarchy-item.accent { border-color: var(--accent); color: var(--accent); background: rgba(131,195,149,0.08); }
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+        .diagram-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .diagram-panel.accent-border { border-left: 3px solid var(--accent); }
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        .diagram-panel p, .diagram-panel ul { font-size: 0.85rem; }
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+        .callout p { margin-bottom: 0; }
+        .callout p + p { margin-top: 0.5rem; }
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+        .contents-list { list-style: none; padding-left: 0; counter-reset: contents; }
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .contents-list li:last-child { border-bottom: none; }
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+        .contents-list a { color: var(--text-primary); text-decoration: none; transition: color 0.2s; }
+        .contents-list a:hover { color: var(--accent); }
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+        .footer a { color: var(--accent); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .canvas-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+        }
+        .canvas-wrap canvas, .canvas-wrap svg { display: block; margin: 0 auto; max-width: 100%; }
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+            margin-left: 0.3rem;
+        }
+        .badge.ok    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .badge.warn  { border-color: #eac48b; color: #eac48b; background: rgba(234,196,139,0.08); }
+        .badge.bad   { border-color: #f48f70; color: #f48f70; background: rgba(244,143,112,0.08); }
+        @media (max-width: 640px) {
+            .slide { padding: 3rem 1rem; min-height: auto; }
+            .slide-number { font-size: 3rem; top: 1.5rem; right: 1rem; }
+            .slide h2 { font-size: 1.5rem; }
+            .diagram-grid.cols-2, .diagram-grid.cols-3 { grid-template-columns: 1fr; }
+            .pipeline { gap: 0.15rem; }
+            .pipeline-step { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+            .hero h1 { font-size: 1.8rem; }
+            table { font-size: 0.78rem; }
+        }
+        .slide p a, .slide td a, .slide li a, .callout a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); }
+        .slide p a:hover, .slide td a:hover, .slide li a:hover, .callout a:hover { border-bottom-style: solid; }
+        .hero { overflow: hidden; }
+        .diagram-panel { min-width: 0; }
+        .metric-label .katex, .callout-label .katex, .series-label .katex,
+        .metric-label .katex *, .callout-label .katex * { text-transform: none; }
+        .canvas-wrap canvas { image-rendering: auto; }
+        .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.25rem 0; }
+        @media (max-width: 640px) { .katex-display { font-size: 0.8em; } }
+        .chart-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin: 1.25rem 0; }
+        .chart-wrap svg { display: block; width: 100%; height: auto; }
+        .chart-cap { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+        .live-link { font-family: var(--font-mono); font-size: 0.8rem; margin-top: 1rem; }
+        .widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 1.25rem 0; }
+        .widget .row { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin-bottom: 0.6rem; }
+        .widget label { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); display: flex; gap: 0.5rem; align-items: center; }
+        .widget input[type=range] { width: 160px; max-width: 100%; accent-color: var(--accent); }
+        .widget select { background: var(--bg-code); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.4rem; font-family: var(--font-mono); font-size: 0.78rem; }
+        .widget button { background: var(--bg-code); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0.35rem 0.8rem; font-family: var(--font-mono); font-size: 0.78rem; cursor: pointer; min-height: 36px; }
+        .widget button:hover { background: var(--accent-dim); }
+        .widget .out { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-primary); }
+        .widget .cap { font-size: 0.82rem; color: var(--text-secondary); min-height: 2.6em; }
+        .widget svg { display: block; width: 100%; height: auto; }
+        .num-strong { color: var(--text-primary); font-weight: 600; }
+    /* deck-mobile-fix:hero */ .hero{overflow:hidden}@supports (overflow-x:clip){.hero{overflow:visible;overflow-x:clip}}
+    /* deck-mobile-fix:phone */ @media (max-width:640px){.diagram-box,.tier-fill,.section-divider>span,.action-btn{white-space:normal;overflow-wrap:anywhere}.diagram-grid>*,.diagram-panel,.diagram-box,.code-block,.callout,.metric,.control-group,.control-row>*,.pipeline-body,.roll-track>*,.tier-fill,.timeline-row>*{min-width:0;max-width:100%}p,li,a,code,td,th,.callout,.diagram-panel{overflow-wrap:break-word}pre{max-width:100%;overflow-x:auto}table{display:block;max-width:100%;overflow-x:auto}.katex-display,.bits,.canvas-wrap,.influence-map-wrapper,.timeline-track,div:has(>.bank-cell){max-width:100%;overflow-x:auto;overflow-y:hidden}select,input,img,video,iframe,.action-btn{max-width:100%}canvas{max-width:100%;height:auto}}
+            /* tt-charts */
+        .chart .plot-bg { fill: none; }
+        .chart .grid { stroke: var(--border); stroke-width: 1; }
+        .chart .axis { stroke: var(--text-secondary); stroke-width: 1; }
+        .chart .lbl { fill: var(--text-secondary); font-family: var(--font-mono); font-size: 12px; }
+        .chart .lbl.ax { fill: var(--text-primary); font-size: 12.5px; }
+        .chart .hline { stroke: var(--text-secondary); stroke-dasharray: 2 4; }
+        .chart .ln { fill: none; stroke-width: 2.2; }
+        .chart .eb { stroke-width: 1.4; }
+        .chart .legend-bg { fill: var(--bg-primary); stroke: var(--border); opacity: 0.92; }
+        .s1 { stroke: #56b4e9; fill: #56b4e9; } .s2 { stroke: #e69f00; fill: #e69f00; }
+        .s3 { stroke: #009e73; fill: #3fbf96; } .s4 { stroke: #cc79a7; fill: #cc79a7; }
+        .s5 { stroke: #f0e442; fill: #f0e442; } .s6 { stroke: #d55e00; fill: #d55e00; }
+        .s0 { stroke: var(--text-secondary); fill: var(--text-secondary); }
+        .ln { fill: none !important; }
+        .chart .bar { stroke: none; opacity: 0.85; }
+        .chart .lbl.inbar { fill: var(--bg-primary); font-weight: 600; }
+        @media (max-width: 640px) { .chart .lbl { font-size: 14px; } .chart .lbl.ax { font-size: 14px; } .wg-text, .wg-dim { font-size: 15px; } }
+        .wg-cell { fill: var(--bg-code); stroke: var(--border); }
+        .wg-text { fill: var(--text-primary); font-family: var(--font-mono); font-size: 13px; }
+        .wg-dim { fill: var(--text-secondary); font-family: var(--font-mono); font-size: 13px; }
+        .wg-hot { fill: #e69f00; } .wg-done { fill: #009e73; } .wg-cool { fill: #56b4e9; } .wg-idle { fill: var(--bg-code); stroke: var(--border); }
+        .wg-fwd { fill: #56b4e9; } .wg-bwd { fill: #e69f00; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false})"></script>
+</head>
+<body>
+<header class="hero">
+    <div class="series-label">Transformer Training &mdash; Presentation 03</div>
+    <h1>Backpropagation <span class="accent">Through a Transformer</span></h1>
+    <p class="subtitle">The chain rule, one operation at a time, from the loss back to the embedding: linear layers, GELU, softmax and the causal mask, LayerNorm, and the residual highway. What each step must save from the forward pass, and how a hand-written backward pass is checked.</p>
+
+    <div class="tags">
+        <span class="tag">Gradient</span>
+        <span class="tag">Chain rule</span>
+        <span class="tag">Residual highway</span>
+        <span class="tag">Softmax backward</span>
+        <span class="tag">Activation memory</span>
+        <span class="tag">Finite differences</span>
+        <span class="tag">Autograd</span>
+    </div>
+
+    <div class="pipeline">
+        <span class="pipeline-step">Loss</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Head</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Blocks (reversed)</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Embedding</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>Topics We&rsquo;ll Cover</h2>
+    <ul class="contents-list">
+        <li><a href="#slide-01">What a Gradient Is</a></li>
+        <li><a href="#slide-02">The Backward Order: the Chain Rule in Reverse</a></li>
+        <li><a href="#slide-03">Through a Linear Layer</a></li>
+        <li><a href="#slide-04">Through Softmax and Attention</a></li>
+        <li><a href="#slide-05">Through GELU and LayerNorm</a></li>
+        <li><a href="#slide-06">The Residual Highway</a></li>
+        <li><a href="#slide-07">What Must Be Saved: Activation Memory</a></li>
+        <li><a href="#slide-08">Checking a Backward Pass</a></li>
+        <li><a href="#slide-09">Finite Differences, Live</a></li>
+        <li><a href="#slide-10">What to Take Away</a></li>
+    </ul>
+    <div class="callout">
+        <div class="callout-label">Live companion and sources</div>
+        <p>This deck follows <a href="https://transformer-decoder-explained.vercel.app/training/04-backprop">chapter 4, backprop through the model</a>, where the gradient for the window &ldquo;alice was&rdquo; travels back through Part 1&rsquo;s model stop by stop. For the inference side of every operation, see Part 1: <a href="https://transformer-decoder-explained.vercel.app/learn/03-attention">attention</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/04-ffn">feed-forward</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/05-layernorm-residuals">LayerNorm and residuals</a>. Checks: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> &sect;3.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>What a Gradient Is</h2>
+    <p>For every one of the model&rsquo;s 5,376 weights, the gradient is one number: how fast the loss would change if that weight alone were nudged up a little. Positive means &ldquo;increasing this weight increases the loss&rdquo;, so the optimiser moves the weight the other way.</p>
+    $$g = \nabla_\theta L = \Big(\frac{\partial L}{\partial \theta_1}, \dots, \frac{\partial L}{\partial \theta_{P}}\Big)$$
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Same shape as the weights</h4>
+            <p>One number per parameter: a gradient for the embedding table, one for every attention and FFN matrix, one for every LayerNorm gain and shift.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Stochastic, and what workers exchange</h4>
+            <p>It is computed fresh on every batch: a noisy estimate of the gradient over all the text (deck 05 measures the noise). In distributed training, this is the vector the workers sum or average (decks 10 and 12).</p>
+        </div>
+    </div>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>The Backward Order: the Chain Rule in Reverse</h2>
+    <p>The forward pass went embedding &rarr; block 0 &rarr; block 1 &rarr; final LayerNorm &rarr; logits &rarr; loss. <strong>Backpropagation</strong> computes every weight&rsquo;s gradient in one pass the other way, each stop one link of the chain rule.</p>
+    <div class="diagram-flow">
+        <div class="diagram-box accent">loss: p &minus; y</div><span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box">tied head E</div><span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box">final LN</div><span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box">block 1: FFN, attention</div><span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box">block 0</div><span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box accent">embedding E</div>
+    </div>
+    <p>Write \(\delta_T = \partial L/\partial T\). Each operation turns &ldquo;how the loss changes with my output&rdquo; into &ldquo;how it changes with my inputs and my weights&rdquo;, using only its own local derivative and what it saved during the forward pass. A weight&rsquo;s gradient is finished at the stop where its operation is crossed. The embedding table gets its gradient twice: at the start (it is also the output head, <a href="https://transformer-decoder-explained.vercel.app/learn/01-overview">tied</a>) and at the very end.</p>
+    <p>Reverse-mode differentiation of a network was popularised for neural networks by <a href="https://doi.org/10.1038/323533a0">Rumelhart, Hinton &amp; Williams (1986)</a>; frameworks such as PyTorch record the forward operations and run exactly this walk automatically (<em>autograd</em>).</p>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>Through a Linear Layer</h2>
+    <p>Every matrix in the model (the attention projections, the FFN, the head) is a linear layer \(Y = XW + b\). Its backward pass is two matrix products:</p>
+    $$\begin{gathered}\frac{\partial L}{\partial W} = X^{\top}\delta_Y, \qquad \frac{\partial L}{\partial b} = \textstyle\sum_{\text{rows}} \delta_Y \\ \delta_X = \delta_Y W^{\top}\end{gathered}$$
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>The weight&rsquo;s gradient</h4>
+            <p>The input the layer saw, transposed, times the gradient of what it produced. So the input \(X\) must be kept from the forward pass.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Why backward &asymp; 2&times; forward</h4>
+            <p>Forward is one matrix product per layer; backward is two (one for \(\partial L/\partial W\), one for \(\delta_X\)). Hence the usual count of about \(6N\) FLOPs per token for training: 2 forward, 4 backward (deck 13).</p>
+        </div>
+    </div>
+    <p>For the tied head \(z = x_f E^{\top}\): \(\delta_{x_f} = \delta_z E\) and \(\partial L/\partial E \mathrel{+}= \delta_z^{\top} x_f\).</p>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>Through Softmax and Attention</h2>
+    <p>In attention, with scores \(S = QK^{\top}/\sqrt{d_k}\), weights \(P = \operatorname{softmax}(S)\) and output \(O = PV\) (<a href="https://transformer-decoder-explained.vercel.app/learn/03-attention">Part 1, chapter 3</a>):</p>
+    $$\begin{gathered}\delta_V = P^{\top}\delta_O, \qquad \delta_P = \delta_O V^{\top} \\ \delta_S = P \odot \big(\delta_P - (\delta_P \odot P)\mathbf 1\big) \\ \delta_Q = \tfrac{\delta_S K}{\sqrt{d_k}}, \qquad \delta_K = \tfrac{\delta_S^{\top} Q}{\sqrt{d_k}}\end{gathered}$$
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Reading the softmax backward</h4>
+            <p>Row by row, a score&rsquo;s gradient is its weight times how much better than average its value vector would have been. A saturated softmax (one weight near 1, the rest near 0) passes almost nothing back: deck 07 shows heads stop learning exactly this way.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>The mask holds on the way back</h4>
+            <p>Masked (future) positions have weight 0, so they receive no gradient. Teacher forcing stays honest in both directions.</p>
+        </div>
+    </div>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>Through GELU and LayerNorm</h2>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>GELU: element by element</h4>
+            <p>\(a = \operatorname{GELU}(u) \Rightarrow \delta_u = \delta_a \odot \operatorname{GELU}'(u)\). The gradient is multiplied by GELU&rsquo;s slope at the value the neuron saw (<a href="https://transformer-decoder-explained.vercel.app/learn/04-ffn">Part 1, chapter 4</a>): neurons far below zero pass almost nothing back. The pre-activation \(u\) must be kept.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>LayerNorm: a projection</h4>
+            <p>LayerNorm&rsquo;s output does not change if its input is shifted or scaled, so its backward pass removes those directions: the mean of the gradient and its component along the normalised input.</p>
+        </div>
+    </div>
+    $$\begin{gathered}\hat x = (x - \mu)\,r, \quad y = \gamma \odot \hat x + \beta, \quad r = 1/\sqrt{\sigma^2 + \varepsilon} \\ \delta_x = r\big(g - \bar g - \hat x\,\overline{g \odot \hat x}\big), \qquad g = \gamma \odot \delta_y\end{gathered}$$
+    <p>Bars are means over the row. RMSNorm (deck 06) drops the mean terms.</p>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>The Residual Highway</h2>
+    <p>At each \(h = x + f(\operatorname{LN}(x))\) the gradient is simply <strong>copied</strong> into both paths: straight down the residual stream, and into the sublayer.</p>
+    $$h = x + f(x) \;\Rightarrow\; \delta_x = \delta_h + f'(x)^{\top}\delta_h$$
+    <p>So the gradient reaching block 0 is the gradient at the top plus whatever each sublayer adds on the way: there is always a path from the loss to every layer along which the gradient is not multiplied by anything (<a href="https://transformer-decoder-explained.vercel.app/learn/05-layernorm-residuals">Part 1, chapter 5</a>). This is why deep residual networks train at all.</p>
+    <div class="chart-wrap"><svg class="chart" viewBox="0 0 480 290" role="img" aria-label="Gradient norm by block at initialisation">
+<rect class="plot-bg" x="62" y="18" width="392" height="230"/>
+<line class="grid" x1="62" x2="454" y1="248.0" y2="248.0"/>
+<text class="lbl" x="56" y="252.0" text-anchor="end">0</text>
+<line class="grid" x1="62" x2="454" y1="209.7" y2="209.7"/>
+<text class="lbl" x="56" y="213.7" text-anchor="end">0.5</text>
+<line class="grid" x1="62" x2="454" y1="171.3" y2="171.3"/>
+<text class="lbl" x="56" y="175.3" text-anchor="end">1</text>
+<line class="grid" x1="62" x2="454" y1="133.0" y2="133.0"/>
+<text class="lbl" x="56" y="137.0" text-anchor="end">1.5</text>
+<line class="grid" x1="62" x2="454" y1="94.7" y2="94.7"/>
+<text class="lbl" x="56" y="98.7" text-anchor="end">2</text>
+<line class="grid" x1="62" x2="454" y1="56.3" y2="56.3"/>
+<text class="lbl" x="56" y="60.3" text-anchor="end">2.5</text>
+<line class="grid" x1="62" x2="454" y1="18.0" y2="18.0"/>
+<text class="lbl" x="56" y="22.0" text-anchor="end">3</text>
+<line class="grid" x1="86.5" x2="86.5" y1="18" y2="248"/>
+<text class="lbl" x="86.5" y="264" text-anchor="middle">1</text>
+<line class="grid" x1="135.5" x2="135.5" y1="18" y2="248"/>
+<text class="lbl" x="135.5" y="264" text-anchor="middle">2</text>
+<line class="grid" x1="184.5" x2="184.5" y1="18" y2="248"/>
+<text class="lbl" x="184.5" y="264" text-anchor="middle">3</text>
+<line class="grid" x1="233.5" x2="233.5" y1="18" y2="248"/>
+<text class="lbl" x="233.5" y="264" text-anchor="middle">4</text>
+<line class="grid" x1="282.5" x2="282.5" y1="18" y2="248"/>
+<text class="lbl" x="282.5" y="264" text-anchor="middle">5</text>
+<line class="grid" x1="331.5" x2="331.5" y1="18" y2="248"/>
+<text class="lbl" x="331.5" y="264" text-anchor="middle">6</text>
+<line class="grid" x1="380.5" x2="380.5" y1="18" y2="248"/>
+<text class="lbl" x="380.5" y="264" text-anchor="middle">7</text>
+<line class="grid" x1="429.5" x2="429.5" y1="18" y2="248"/>
+<text class="lbl" x="429.5" y="264" text-anchor="middle">8</text>
+<line class="axis" x1="62" x2="454" y1="248" y2="248"/>
+<line class="axis" x1="62" x2="62" y1="18" y2="248"/>
+<text class="lbl ax" x="258" y="284" text-anchor="middle">block (1 = nearest the input)</text>
+<text class="lbl ax" x="13" y="133" text-anchor="middle" transform="rotate(-90 13 133)">weight-gradient norm</text>
+<clipPath id="clip133408789438400"><rect x="62" y="18" width="392" height="230"/></clipPath>
+<g clip-path="url(#clip133408789438400)">
+<path class="ln s1" d="M86.5,160.9 L135.5,170.5 L184.5,175.4 L233.5,196.5 L282.5,188.4 L331.5,170.1 L380.5,168.0 L429.5,188.5"/>
+<circle class="pt s1" cx="86.5" cy="160.9" r="3"/>
+<circle class="pt s1" cx="135.5" cy="170.5" r="3"/>
+<circle class="pt s1" cx="184.5" cy="175.4" r="3"/>
+<circle class="pt s1" cx="233.5" cy="196.5" r="3"/>
+<circle class="pt s1" cx="282.5" cy="188.4" r="3"/>
+<circle class="pt s1" cx="331.5" cy="170.1" r="3"/>
+<circle class="pt s1" cx="380.5" cy="168.0" r="3"/>
+<circle class="pt s1" cx="429.5" cy="188.5" r="3"/>
+<path class="ln s2" d="M86.5,149.4 L135.5,122.5 L184.5,123.0 L233.5,96.6 L282.5,95.7 L331.5,92.5 L380.5,38.5 L429.5,72.7"/>
+<circle class="pt s2" cx="86.5" cy="149.4" r="3"/>
+<circle class="pt s2" cx="135.5" cy="122.5" r="3"/>
+<circle class="pt s2" cx="184.5" cy="123.0" r="3"/>
+<circle class="pt s2" cx="233.5" cy="96.6" r="3"/>
+<circle class="pt s2" cx="282.5" cy="95.7" r="3"/>
+<circle class="pt s2" cx="331.5" cy="92.5" r="3"/>
+<circle class="pt s2" cx="380.5" cy="38.5" r="3"/>
+<circle class="pt s2" cx="429.5" cy="72.7" r="3"/>
+</g>
+<g class="legend"><rect class="legend-bg" x="68" y="24" width="146" height="40" rx="4"/><line class="ln s1" x1="76" x2="94" y1="34" y2="34"/><text class="lbl" x="99" y="38">pre-LN, std 0.25</text><line class="ln s2" x1="76" x2="94" y1="50" y2="50"/><text class="lbl" x="99" y="54">post-LN, std 0.25</text></g>
+</svg><div class="chart-cap">An 8-block version of the model at initialisation, weights drawn with std 0.25 (results.md &sect;7a). Pre-LN keeps every block&rsquo;s gradient of similar size; post-LN, where every gradient must pass through the LayerNorms above it, does not. Deck 06 has the whole story.</div></div>
+</section>
+
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>What Must Be Saved: Activation Memory</h2>
+    <p>Every stop needs something from the forward pass: the input of each linear layer, the pre-activation of GELU, the attention weights, each LayerNorm&rsquo;s input. Training must keep all of these, for every position of every sequence in the batch, until the backward pass reaches them.</p>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Counted on Part 1&rsquo;s model</h4>
+            <p>2,320 values per sequence per block, counted in the reference trainer&rsquo;s forward pass (results.md &sect;10).</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>At scale</h4>
+            <p>For a large model this <em>activation memory</em> is often larger than the weights. Trainers keep only some activations and recompute the rest during the backward pass: activation checkpointing (<a href="https://arxiv.org/abs/1604.06174">Chen et al. 2016</a>), measured in <a href="https://brendanjameslynskey.github.io/Transformer_Training_09_Memory/">deck 09</a>.</p>
+        </div>
+    </div>
+</section>
+
+<section class="slide" id="slide-08">
+    <div class="slide-number">08</div>
+    <h2>Checking a Backward Pass</h2>
+    <p>The site writes every backward step out by hand (NumPy, float64) and checks it two ways, at initialisation and at perturbed weights:</p>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Backward pass checked against</th><th>Measured</th><th>Tolerance</th></tr></thead>
+            <tbody>
+                <tr><td>PyTorch autograd, at initialisation</td><td>4.4&times;10<sup>&minus;17</sup> (max err / (1 + max |grad|))</td><td>10<sup>&minus;12</sup></td></tr>
+                <tr><td>PyTorch autograd, perturbed weights</td><td>9.4&times;10<sup>&minus;17</sup> (same)</td><td>10<sup>&minus;12</sup></td></tr>
+                <tr><td>Central differences, h = 10<sup>&minus;6</sup>, 552 entries, at initialisation</td><td>7.2&times;10<sup>&minus;10</sup> (max abs)</td><td>10<sup>&minus;8</sup> + 10<sup>&minus;6</sup>|g|</td></tr>
+                <tr><td>Central differences, perturbed weights</td><td>7.6&times;10<sup>&minus;10</sup> (max abs)</td><td>10<sup>&minus;8</sup> + 10<sup>&minus;6</sup>|g|</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Against autograd</h4>
+            <p>PyTorch (CPU, pinned version) computes the same gradients automatically; agreement to about 10<sup>&minus;16</sup>, relative, means the two do the same arithmetic in nearly the same order.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Against finite differences</h4>
+            <p>\(\dfrac{L(\theta + h e_i) - L(\theta - h e_i)}{2h}\) for 552 chosen entries with \(h = 10^{-6}\): independent of any derivative code, so it catches a wrong formula that autograd-style code could share.</p>
+        </div>
+    </div>
+</section>
+
+<section class="slide" id="slide-09">
+    <div class="slide-number">09</div>
+    <h2>Finite Differences, Live</h2>
+    <p>Central differences of the cross-entropy at fixed logits \(z\) against the exact gradient \(p - y\) (deck 01). Move \(h\): too large and the truncation error (&prop; \(h^2\)) dominates; too small and floating-point cancellation (&prop; \(\epsilon/h\)) does.</p>
+    <div class="widget" id="fd-widget">
+        <div class="row">
+            <label>step h = 10^<input type="range" id="fd-h" min="-14" max="-1" value="-6"></label>
+            <span class="out" id="fd-out"></span>
+        </div>
+        <svg id="fd-svg" viewBox="0 0 480 200" role="img" aria-label="Finite-difference error against step size"></svg>
+        <div class="cap" id="fd-cap" aria-live="polite"></div>
+    </div>
+    <script>
+    (function () {
+        const z = [1.3, -0.4, 0.25, 2.1, -1.7, 0.6, 0.05, -0.9], y = 3;
+        const loss = v => { const m = Math.max(...v); let s = 0; for (const x of v) s += Math.exp(x - m); return m + Math.log(s) - v[y]; };
+        const m = Math.max(...z), e = z.map(x => Math.exp(x - m)), S = e.reduce((a, b) => a + b, 0);
+        const exact = e.map((x, k) => x / S - (k === y ? 1 : 0));
+        const err = h => { let w = 0; for (let k = 0; k < z.length; k++) { const a = z.slice(), b = z.slice(); a[k] += h; b[k] -= h; w = Math.max(w, Math.abs((loss(a) - loss(b)) / (2 * h) - exact[k])); } return w; };
+        const svg = document.getElementById('fd-svg'), out = document.getElementById('fd-out'), cap = document.getElementById('fd-cap'), s = document.getElementById('fd-h');
+        const X = lh => 50 + (lh + 14) / 13 * 410, Y = le => 175 - (Math.max(-17, Math.min(0, le)) + 17) / 17 * 160;
+        let d = '', pts = [];
+        for (let lh = -14; lh <= -1.0001; lh += 0.25) { const v = err(10 ** lh); pts.push([lh, v]); d += (d ? 'L' : 'M') + X(lh).toFixed(1) + ',' + Y(Math.log10(Math.max(v, 1e-17))).toFixed(1); }
+        let g = '';
+        for (let k = -14; k <= -1; k += 2) g += '<text class="wg-dim" x="' + X(k) + '" y="195" text-anchor="middle">1e' + k + '</text>';
+        for (let k = -16; k <= 0; k += 4) g += '<text class="wg-dim" x="45" y="' + (Y(k) + 4) + '" text-anchor="end">1e' + k + '</text><line x1="50" x2="460" y1="' + Y(k) + '" y2="' + Y(k) + '" class="grid" stroke="var(--border)"/>';
+        svg.innerHTML = g + '<path class="ln s1" stroke-width="2.2" d="' + d + '"/><circle id="fd-dot" r="5" class="wg-hot"/>';
+        const dot = document.getElementById('fd-dot');
+        function upd() {
+            const lh = +s.value, v = err(10 ** lh);
+            dot.setAttribute('cx', X(lh)); dot.setAttribute('cy', Y(Math.log10(Math.max(v, 1e-17))));
+            out.textContent = 'h = 1e' + lh + ':  max |FD − (p − y)| = ' + v.toExponential(1);
+            cap.textContent = lh >= -3 ? 'Large h: the h² truncation error of the central difference dominates.' :
+                lh <= -10 ? 'Tiny h: L(θ+h) and L(θ−h) agree in almost every digit, and rounding error / h dominates.' :
+                'Near the sweet spot: about the cube root of machine precision for a central difference.';
+        }
+        s.addEventListener('input', upd); upd();
+    })();
+    </script>
+    <p>The site&rsquo;s check uses \(h = 10^{-6}\) on the whole model in float64 and reaches 7.6e-10 (results.md &sect;3).</p>
+</section>
+
+<section class="slide" id="slide-10">
+    <div class="slide-number">10</div>
+    <h2>What to Take Away</h2>
+    <ul>
+        <li>The gradient has <strong>one number per weight</strong>, recomputed every batch; it is what data-parallel workers exchange.</li>
+        <li>Backprop is the chain rule <strong>in reverse</strong>; a linear layer&rsquo;s weight gradient is \(X^{\top}\delta_Y\), and backward costs about twice forward.</li>
+        <li>Softmax backward vanishes when attention saturates; the causal mask holds on the way back.</li>
+        <li>Residual connections <strong>copy</strong> the gradient, so it reaches early layers undiminished.</li>
+        <li>Everything the backward pass reads must be <strong>saved</strong>: activation memory.</li>
+        <li>Check a hand-written backward against <strong>autograd and finite differences</strong>.</li>
+    </ul>
+    <p class="live-link">Animated: <a href="https://transformer-decoder-explained.vercel.app/training/04-backprop">chapter 4, backprop through the model</a> &middot; from first principles: <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Karpathy_Zero_to_Hero">micrograd (Karpathy hub)</a>, <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Linear_Algebra">Linear Algebra for AI</a> &middot; next: <a href="https://brendanjameslynskey.github.io/Transformer_Training_04_Optimisers/">deck 04, optimisers</a></p>
+</section>
+
+<footer class="footer">
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Transformer_Training">Transformer Training series</a> &middot; live, animated companion: <a href="https://transformer-decoder-explained.vercel.app/training/04-backprop">chapter 4, Backprop through the model</a> of <a href="https://transformer-decoder-explained.vercel.app/training">Transformer Decoder Explained, Part 2</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://brendanjameslynskey.github.io/Transformer_Training_02_Data_and_Tokenisation/">&larr; 02 Data &amp; Tokens</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/LLM_Hub_Transformer_Training/">Series index</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/Transformer_Training_04_Optimisers/">04 Optimisers &rarr;</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.75rem;">Measured numbers: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> (transformer-explainer @15b1c9f). Code on these slides is cut from that repository.</p>
+</footer>
+<script>
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+</body>
+</html>
