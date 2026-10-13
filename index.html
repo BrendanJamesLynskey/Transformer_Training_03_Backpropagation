@@ -495,7 +495,7 @@
     </ul>
     <div class="callout">
         <div class="callout-label">Live companion and sources</div>
-        <p>This deck follows <a href="https://transformer-training-explained.vercel.app/training/04-backprop">chapter 4, backprop through the model</a>, where the gradient for the window &ldquo;alice was&rdquo; travels back through Part 1&rsquo;s model stop by stop. For the inference side of every operation, see Part 1: <a href="https://transformer-decoder-explained.vercel.app/learn/03-attention">attention</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/04-ffn">feed-forward</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/05-layernorm-residuals">LayerNorm and residuals</a>. Checks: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> &sect;3.</p>
+        <p>This deck follows <a href="https://transformer-training-explained.vercel.app/training/04-backprop">chapter 4, backprop through the model</a>, where the gradient for the window &ldquo;alice was&rdquo; travels back through the Decoder&rsquo;s model stop by stop. For the forward side of every operation, see the Decoder site: <a href="https://transformer-decoder-explained.vercel.app/learn/03-attention">attention</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/04-ffn">feed-forward</a>, <a href="https://transformer-decoder-explained.vercel.app/learn/05-layernorm-residuals">LayerNorm and residuals</a>. Checks: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> &sect;3.</p>
     </div>
 </section>
 
@@ -553,7 +553,7 @@
 <section class="slide" id="slide-04">
     <div class="slide-number">04</div>
     <h2>Through Softmax and Attention</h2>
-    <p>In attention, with scores \(S = QK^{\top}/\sqrt{d_k}\), weights \(P = \operatorname{softmax}(S)\) and output \(O = PV\) (<a href="https://transformer-decoder-explained.vercel.app/learn/03-attention">Part 1, chapter 3</a>):</p>
+    <p>In attention, with scores \(S = QK^{\top}/\sqrt{d_k}\), weights \(P = \operatorname{softmax}(S)\) and output \(O = PV\) (<a href="https://transformer-decoder-explained.vercel.app/learn/03-attention">Decoder, chapter 3</a>):</p>
     $$\begin{gathered}\delta_V = P^{\top}\delta_O, \qquad \delta_P = \delta_O V^{\top} \\ \delta_S = P \odot \big(\delta_P - (\delta_P \odot P)\mathbf 1\big) \\ \delta_Q = \tfrac{\delta_S K}{\sqrt{d_k}}, \qquad \delta_K = \tfrac{\delta_S^{\top} Q}{\sqrt{d_k}}\end{gathered}$$
     <div class="diagram-grid cols-2">
         <div class="diagram-panel accent-border">
@@ -573,7 +573,7 @@
     <div class="diagram-grid cols-2">
         <div class="diagram-panel accent-border">
             <h4>GELU: element by element</h4>
-            <p>\(a = \operatorname{GELU}(u) \Rightarrow \delta_u = \delta_a \odot \operatorname{GELU}'(u)\). The gradient is multiplied by GELU&rsquo;s slope at the value the neuron saw (<a href="https://transformer-decoder-explained.vercel.app/learn/04-ffn">Part 1, chapter 4</a>): neurons far below zero pass almost nothing back. The pre-activation \(u\) must be kept.</p>
+            <p>\(a = \operatorname{GELU}(u) \Rightarrow \delta_u = \delta_a \odot \operatorname{GELU}'(u)\). The gradient is multiplied by GELU&rsquo;s slope at the value the neuron saw (<a href="https://transformer-decoder-explained.vercel.app/learn/04-ffn">Decoder, chapter 4</a>): neurons far below zero pass almost nothing back. The pre-activation \(u\) must be kept.</p>
         </div>
         <div class="diagram-panel accent-border">
             <h4>LayerNorm: a projection</h4>
@@ -589,7 +589,7 @@
     <h2>The Residual Highway</h2>
     <p>At each \(h = x + f(\operatorname{LN}(x))\) the gradient is simply <strong>copied</strong> into both paths: straight down the residual stream, and into the sublayer.</p>
     $$h = x + f(x) \;\Rightarrow\; \delta_x = \delta_h + f'(x)^{\top}\delta_h$$
-    <p>So the gradient reaching block 0 is the gradient at the top plus whatever each sublayer adds on the way: there is always a path from the loss to every layer along which the gradient is not multiplied by anything (<a href="https://transformer-decoder-explained.vercel.app/learn/05-layernorm-residuals">Part 1, chapter 5</a>). This is why deep residual networks train at all.</p>
+    <p>So the gradient reaching block 0 is the gradient at the top plus whatever each sublayer adds on the way: there is always a path from the loss to every layer along which the gradient is not multiplied by anything (<a href="https://transformer-decoder-explained.vercel.app/learn/05-layernorm-residuals">Decoder, chapter 5</a>). This is why deep residual networks train at all.</p>
     <div class="chart-wrap"><svg class="chart" viewBox="0 0 480 290" role="img" aria-label="Gradient norm by block at initialisation">
 <rect class="plot-bg" x="62" y="18" width="392" height="230"/>
 <line class="grid" x1="62" x2="454" y1="248.0" y2="248.0"/>
@@ -626,8 +626,8 @@
 <line class="axis" x1="62" x2="62" y1="18" y2="248"/>
 <text class="lbl ax" x="258" y="284" text-anchor="middle">block (1 = nearest the input)</text>
 <text class="lbl ax" x="13" y="133" text-anchor="middle" transform="rotate(-90 13 133)">weight-gradient norm</text>
-<clipPath id="clip129419002228352"><rect x="62" y="18" width="392" height="230"/></clipPath>
-<g clip-path="url(#clip129419002228352)">
+<clipPath id="clip136114096838080"><rect x="62" y="18" width="392" height="230"/></clipPath>
+<g clip-path="url(#clip136114096838080)">
 <path class="ln s1" d="M86.5,160.9 L135.5,170.5 L184.5,175.4 L233.5,196.5 L282.5,188.4 L331.5,170.1 L380.5,168.0 L429.5,188.5"/>
 <circle class="pt s1" cx="86.5" cy="160.9" r="3"/>
 <circle class="pt s1" cx="135.5" cy="170.5" r="3"/>
@@ -657,7 +657,7 @@
     <p>Every stop needs something from the forward pass: the input of each linear layer, the pre-activation of GELU, the attention weights, each LayerNorm&rsquo;s input. Training must keep all of these, for every position of every sequence in the batch, until the backward pass reaches them.</p>
     <div class="diagram-grid cols-2">
         <div class="diagram-panel accent-border">
-            <h4>Counted on Part 1&rsquo;s model</h4>
+            <h4>Counted on the Decoder&rsquo;s model</h4>
             <p>2,320 values per sequence per block, counted in the reference trainer&rsquo;s forward pass (results.md &sect;10).</p>
         </div>
         <div class="diagram-panel accent-border">
@@ -751,7 +751,7 @@
 </section>
 
 <footer class="footer">
-    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Transformer_Training">Transformer Training series</a> &middot; live, animated companion: <a href="https://transformer-training-explained.vercel.app/training/04-backprop">chapter 4, Backprop through the model</a> of <a href="https://transformer-training-explained.vercel.app/training">Transformer Decoder Explained, Part 2</a></p>
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Transformer_Training">Transformer Training series</a> &middot; live, animated companion: <a href="https://transformer-training-explained.vercel.app/training/04-backprop">chapter 4, Backprop through the model</a> of the <a href="https://transformer-training-explained.vercel.app/training">Training</a> site</p>
     <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://brendanjameslynskey.github.io/Transformer_Training_02_Data_and_Tokenisation/">&larr; 02 Data &amp; Tokens</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/LLM_Hub_Transformer_Training/">Series index</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/Transformer_Training_04_Optimisers/">04 Optimisers &rarr;</a></p>
     <p style="margin-top: 0.5rem; font-size: 0.75rem;">Measured numbers: <a href="https://github.com/BrendanJamesLynskey/transformer-explainer/blob/main/results.md">results.md</a> (transformer-explainer @15b1c9f). Code on these slides is cut from that repository.</p>
 </footer>
